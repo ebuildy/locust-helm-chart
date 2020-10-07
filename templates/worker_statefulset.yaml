@@ -1,0 +1,82 @@
+{{- if .Values.worker.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "locust-chart.worker.fullname" . }}
+  labels:
+    {{- include "locust-chart.worker.labels" . | nindent 4 }}
+spec:
+{{- if not .Values.worker.autoscaling.enabled }}
+  replicas: {{ .Values.worker.replicaCount }}
+{{- end }}
+  selector:
+    matchLabels:
+      {{- include "locust-chart.worker.selectorLabels" . | nindent 6 }}
+  serviceName: {{ include "locust-chart.fullname" . }}-worker-headless
+  template:
+    metadata:
+    {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      labels:
+        {{- include "locust-chart.worker.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "locust-chart.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}-worker
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          volumeMounts:
+          {{- with .Values.locust.scripts }}
+          - name: locust-scripts
+            mountPath: /home/locust/scripts
+          {{- end }}
+          {{- if .Values.extraVolumeMounts }}
+            {{ toYaml .Values.extraVolumeMounts | indent 10 }}
+          {{- end }}
+          env:
+          - name: LOCUST_MASTER_NODE_HOST
+            value: {{ include "locust-chart.fullname" . }}
+          - name: LOCUST_MASTER_NODE_PORT
+            value: "{{ .Values.locust.cluster_port }}"
+          - name: LOCUST_MODE_WORKER
+            value: "true"
+          - name: LOCUST_HEADLESS
+            value: "true"
+          - name: LOCUSTFILE
+            value: {{ .Values.locust.locust_file }}
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+          command: ["locust"]
+          args: ["--headless", "--worker"]
+      volumes:
+      {{- if .Values.locust.scripts }}
+      - name: "locust-scripts"
+        configMap:
+          name: {{ include "locust-chart.fullname" . }}
+      {{- end }}
+      {{- with .Values.extraVolumes }}
+      {{ toYaml . | indent 8 }}
+      {{- end }}
+      {{- with .Values.worker.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.worker.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.worker.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

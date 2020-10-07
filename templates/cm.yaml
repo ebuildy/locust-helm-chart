@@ -1,0 +1,13 @@
+{{- if .Values.locust.scripts }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "locust-chart.fullname" . }}
+  labels:
+    {{- include "locust-chart.labels" . | nindent 4 }}
+data:
+{{- range $path, $config := .Values.locust.scripts }}
+  {{ $path }}: |
+{{ $config | indent 4 -}}
+{{- end -}}
+{{- end }}

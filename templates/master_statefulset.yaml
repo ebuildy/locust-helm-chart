@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "locust-chart.fullname" . }}
+  labels:
+    {{- include "locust-chart.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "locust-chart.selectorLabels" . | nindent 6 }}
+  serviceName: {{ include "locust-chart.fullname" . }}
+  replicas: {{ .Values.master.replicaCount }}
+  template:
+    metadata:
+    {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      labels:
+        {{- include "locust-chart.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "locust-chart.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}-master
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          volumeMounts:
+          {{- with .Values.locust.scripts }}
+          - name: locust-scripts
+            mountPath: /home/locust/scripts
+          {{- end }}
+          {{- if .Values.extraVolumeMounts }}
+            {{ toYaml .Values.extraVolumeMounts | indent 10 }}
+          {{- end }}
+          env:
+          - name: LOCUST_MASTER_BIND_HOST
+            value: 0.0.0.0
+          - name: LOCUST_MASTER_BIND_PORT
+            value: "{{ .Values.locust.cluster_port }}"
+          - name: LOCUST_MODE_MASTER
+            value: "true"
+          - name: LOCUSTFILE
+            value: {{ .Values.locust.locust_file }}
+          ports:
+          - name: http
+            containerPort: {{ .Values.locust.webui_port }}
+            protocol: TCP
+          - name: cluster
+            containerPort: {{ .Values.locust.cluster_port }}
+            protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          resources:
+            {{- toYaml .Values.master.resources | nindent 12 }}
+          command: ["locust"]
+          args: ["--web-host", "0.0.0.0"]
+      volumes:
+      {{- if .Values.locust.scripts }}
+      - name: "locust-scripts"
+        configMap:
+          name: {{ include "locust-chart.fullname" . }}
+      {{- end }}
+      {{- with .Values.extraVolumes }}
+      {{ toYaml . | indent 8 }}
+      {{- end }}
+      {{- with .Values.master.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.master.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.master.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
