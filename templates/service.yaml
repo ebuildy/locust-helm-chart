@@ -11,10 +11,12 @@ spec:
       targetPort: http
       protocol: TCP
       name: http
+    {{- if .Values.worker.enabled }}
     - port: {{ .Values.locust.cluster_port }}
       targetPort: cluster
       protocol: TCP
       name: cluster
+    {{- end }}
   selector:
     {{- include "locust-chart.selectorLabels" . | nindent 4 }}
 {{- if .Values.worker.enabled }}

@@ -41,21 +41,25 @@ spec:
             {{ toYaml .Values.extraVolumeMounts | indent 10 }}
           {{- end }}
           env:
+          {{- if .Values.worker.enabled }}
           - name: LOCUST_MASTER_BIND_HOST
             value: 0.0.0.0
           - name: LOCUST_MASTER_BIND_PORT
             value: "{{ .Values.locust.cluster_port }}"
           - name: LOCUST_MODE_MASTER
             value: "true"
+          {{- end }}
           - name: LOCUSTFILE
             value: {{ .Values.locust.locust_file }}
           ports:
           - name: http
             containerPort: {{ .Values.locust.webui_port }}
             protocol: TCP
+          {{- if .Values.worker.enabled }}
           - name: cluster
             containerPort: {{ .Values.locust.cluster_port }}
             protocol: TCP
+          {{- end }}
           livenessProbe:
             httpGet:
               path: /
